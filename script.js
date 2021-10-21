@@ -1,6 +1,8 @@
+//Peerモデルを定義
 const Peer = window.Peer;
 
 (async function main() {
+  //操作がDOMを取得
   const localVideo = document.getElementById('js-local-stream');
   const joinTrigger = document.getElementById('js-join-trigger');
   const leaveTrigger = document.getElementById('js-leave-trigger');
@@ -18,14 +20,17 @@ const Peer = window.Peer;
     SDK: ${sdkSrc ? sdkSrc.src : 'unknown'}
   `.trim();
 
+  //同時接続モードがSFUなのかMESHなのかをここで設定
   const getRoomModeByHash = () => (location.hash === '#sfu' ? 'sfu' : 'mesh');
-
+  //divタグに接続モードを挿入
   roomMode.textContent = getRoomModeByHash();
+  //接続モードの変更を感知するリスナーを設置
   window.addEventListener(
     'hashchange',
     () => (roomMode.textContent = getRoomModeByHash())
   );
 
+  //自分の映像と音声をlocalStreamに代入
   const localStream = await navigator.mediaDevices
     .getUserMedia({
       audio: true,
@@ -33,59 +38,59 @@ const Peer = window.Peer;
     })
     .catch(console.error);
 
-  // Render local stream
+  // localStreamをdiv(localVideo)に挿入
   localVideo.muted = true;
   localVideo.srcObject = localStream;
   localVideo.playsInline = true;
   await localVideo.play().catch(console.error);
 
-  // eslint-disable-next-line require-atomic-updates
+  // Peerのインスタンス作成
   const peer = (window.peer = new Peer({
     key: window.__SKYWAY_KEY__,
     debug: 3,
   }));
 
-  // Register join handler
+  // 「div(joinTrigger)が押される＆既に接続が始まっていなかったら接続」するリスナー設置
   joinTrigger.addEventListener('click', () => {
-    // Note that you need to ensure the peer has connected to signaling server
-    // before using methods of peer instance.
     if (!peer.open) {
       return;
     }
-
+    //部屋に接続するメソッド（joinRoom）
     const room = peer.joinRoom(roomId.value, {
       mode: getRoomModeByHash(),
       stream: localStream,
     });
-
+    //部屋に接続できた時（open）に一度だけdiv(messages)に=== You joined ===を表示
     room.once('open', () => {
       messages.textContent += '=== You joined ===\n';
     });
+    //部屋に誰かが接続してきた時（peerJoin）、div(messages)に下記のテキストを表示
     room.on('peerJoin', peerId => {
       messages.textContent += `=== ${peerId} joined ===\n`;
     });
 
-    // Render remote stream for new peer join in the room
+    //重要：streamの内容に変更があった時（stream）videoタグを作って流す
     room.on('stream', async stream => {
       const newVideo = document.createElement('video');
       newVideo.srcObject = stream;
       newVideo.playsInline = true;
-      // mark peerId to find it later at peerLeave event
+      // 誰かが退出した時どの人が退出したかわかるように、data-peer-idを付与
       newVideo.setAttribute('data-peer-id', stream.peerId);
       remoteVideos.append(newVideo);
       await newVideo.play().catch(console.error);
     });
 
+    //重要：誰かがテキストメッセージを送った時、messagesを更新
     room.on('data', ({ data, src }) => {
-      // Show a message sent to the room and who sent
       messages.textContent += `${src}: ${data}\n`;
     });
 
-    // for closing room members
+     // 誰かが退出した場合、div（remoteVideos）内にある、任意のdata-peer-idがついたvideoタグの内容を空にして削除する
     room.on('peerLeave', peerId => {
       const remoteVideo = remoteVideos.querySelector(
         `[data-peer-id="${peerId}"]`
       );
+      //videoストリームを止める上では定番の書き方らしい。https://developer.mozilla.org/en-US/docs/Web/API/MediaStreamTrack/stop
       remoteVideo.srcObject.getTracks().forEach(track => track.stop());
       remoteVideo.srcObject = null;
       remoteVideo.remove();
@@ -93,10 +98,13 @@ const Peer = window.Peer;
       messages.textContent += `=== ${peerId} left ===\n`;
     });
 
-    // for closing myself
+     // 自分が退出した場合の処理
     room.once('close', () => {
+      //メッセージ送信ボタンを押せなくする
       sendTrigger.removeEventListener('click', onClickSend);
+      //messagesに== You left ===\nを表示
       messages.textContent += '== You left ===\n';
+      //remoteVideos以下の全てのvideoタグのストリームを停めてから削除
       Array.from(remoteVideos.children).forEach(remoteVideo => {
         remoteVideo.srcObject.getTracks().forEach(track => track.stop());
         remoteVideo.srcObject = null;
@@ -104,13 +112,14 @@ const Peer = window.Peer;
       });
     });
 
+    // ボタン（sendTrigger）を押すとonClickSendを発動
     sendTrigger.addEventListener('click', onClickSend);
+    // ボタン（leaveTrigger）を押すとroom.close()を発動
     leaveTrigger.addEventListener('click', () => room.close(), { once: true });
 
+    //テキストメッセージを送る処理
     function onClickSend() {
-      // Send message to all of the peers in the room via websocket
       room.send(localText.value);
-
       messages.textContent += `${peer.id}: ${localText.value}\n`;
       localText.value = '';
     }
