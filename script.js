@@ -6,6 +6,8 @@ const Peer = window.Peer;
   const localVideo = document.getElementById('js-local-stream');
   const joinTrigger = document.getElementById('js-join-trigger');
   const leaveTrigger = document.getElementById('js-leave-trigger');
+  const micTrigger = document.getElementById('js-mic-trigger');
+  const videoTrigger = document.getElementById('js-video-trigger');
   const remoteVideos = document.getElementById('js-remote-streams');
   const roomId = document.getElementById('js-room-id');
   const roomMode = document.getElementById('js-room-mode');
@@ -14,6 +16,9 @@ const Peer = window.Peer;
   const messages = document.getElementById('js-messages');
   const meta = document.getElementById('js-meta');
   const sdkSrc = document.querySelector('script[src*=skyway]');
+  var mic=true;
+  var video=true;
+  
 
   meta.innerText = `
     UA: ${navigator.userAgent}
@@ -116,12 +121,36 @@ const Peer = window.Peer;
     sendTrigger.addEventListener('click', onClickSend);
     // ボタン（leaveTrigger）を押すとroom.close()を発動
     leaveTrigger.addEventListener('click', () => room.close(), { once: true });
+    micTrigger.addEventListener('click', muted);
+    videoTrigger.addEventListener('click', videoff);
 
     //テキストメッセージを送る処理
     function onClickSend() {
       room.send(localText.value);
       messages.textContent += `${peer.id}: ${localText.value}\n`;
       localText.value = '';
+    }
+    function muted() {
+      // 音声のみミュート
+      if(mic){
+        localStream.getAudioTracks().forEach((track) => (track.enabled = false));
+        mic=false;
+      }
+      else{
+        localStream.getAudioTracks().forEach((track) => (track.enabled = true));
+        mic=true;
+      }
+    }
+    function videoff() {
+      //ビデオのみミュート
+      if(video){
+        localStream.getVideoTracks().forEach((video) => (video.enabled = false));
+        video=false;
+      }
+      else{
+        localStream.getVideoTracks().forEach((video) => (video.enabled = true));
+        video=true;
+      }
     }
   });
 
