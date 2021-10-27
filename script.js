@@ -134,10 +134,12 @@ const Peer = window.Peer;
       // 音声のみミュート
       if(mic){
         localStream.getAudioTracks().forEach((track) => (track.enabled = false));
+        document.getElementById("js-mic-trigger").textContent="mic-off"
         mic=false;
       }
       else{
         localStream.getAudioTracks().forEach((track) => (track.enabled = true));
+        document.getElementById("js-mic-trigger").textContent="mic-on "
         mic=true;
       }
     }
@@ -145,10 +147,12 @@ const Peer = window.Peer;
       //ビデオのみミュート
       if(video){
         localStream.getVideoTracks().forEach((video) => (video.enabled = false));
+        document.getElementById("js-video-trigger").textContent="video-off"
         video=false;
       }
       else{
         localStream.getVideoTracks().forEach((video) => (video.enabled = true));
+        document.getElementById("js-video-trigger").textContent="video-on "
         video=true;
       }
     }
